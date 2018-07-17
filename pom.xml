@@ -338,7 +338,7 @@
             <dependency>
                 <groupId>com.google.javascript</groupId>
                 <artifactId>closure-compiler</artifactId>
-                <version>v20130411</version>
+                <version>v20160208</version>
             </dependency>
             <dependency>
                 <groupId>org.uiautomation</groupId>

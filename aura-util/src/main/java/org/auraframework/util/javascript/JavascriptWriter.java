@@ -26,29 +26,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import com.google.javascript.jscomp.*;
+import com.google.javascript.jscomp.Compiler;
 import org.auraframework.util.IOUtil;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
-import com.google.javascript.jscomp.AbstractCompiler;
-import com.google.javascript.jscomp.BasicErrorManager;
-import com.google.javascript.jscomp.CheckLevel;
-import com.google.javascript.jscomp.CommandLineRunner;
-import com.google.javascript.jscomp.CompilationLevel;
-import com.google.javascript.jscomp.Compiler;
-import com.google.javascript.jscomp.CompilerOptions;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
-import com.google.javascript.jscomp.CompilerPass;
-import com.google.javascript.jscomp.CustomPassExecutionTime;
-import com.google.javascript.jscomp.ErrorFormat;
-import com.google.javascript.jscomp.JSError;
-import com.google.javascript.jscomp.MessageFormatter;
-import com.google.javascript.jscomp.PropertyRenamingPolicy;
-import com.google.javascript.jscomp.Result;
-import com.google.javascript.jscomp.SourceFile;
-import com.google.javascript.jscomp.SourceMap;
-import com.google.javascript.jscomp.VariableRenamingPolicy;
-import com.google.javascript.jscomp.WarningsGuard;
 
 /**
  * Util for compressing and writing javascript.
@@ -75,15 +59,11 @@ public enum JavascriptWriter {
         public void setClosureOptions(CompilerOptions options) {
             CompilationLevel.WHITESPACE_ONLY.setOptionsForCompilationLevel(options);
             options.setPrettyPrint(true);
-
-            
         }
         @Override
         public void setCustomPasses(CompilerOptions options, AbstractCompiler compiler) {
-        	Multimap<CustomPassExecutionTime, CompilerPass> passes = ArrayListMultimap.create();
-        	passes.put(CustomPassExecutionTime.AFTER_OPTIMIZATION_LOOP, new JavascriptASTCommentSymbolsPass(compiler));
-        	options.setCustomPasses(passes);
-        	options.setSkipAllPasses(false);
+        	options.addCustomPass(CustomPassExecutionTime.AFTER_OPTIMIZATION_LOOP, new JavascriptASTCommentSymbolsPass(compiler));
+        	options.setSkipNonTranspilationPasses(false);
         }
     },
 
@@ -109,6 +89,7 @@ public enum JavascriptWriter {
             options.setReserveRawExports(true);
             options.setRenamingPolicy(VariableRenamingPolicy.OFF, PropertyRenamingPolicy.ALL_UNQUOTED);
             options.setGenerateExports(true);
+            options.setWarningLevel(DiagnosticGroups.CHECK_USELESS_CODE, CheckLevel.OFF);
         }
 
         @Override
@@ -270,7 +251,7 @@ public enum JavascriptWriter {
 
         CompilerOptions options = new CompilerOptions();
         options.setCheckGlobalThisLevel(CheckLevel.OFF);
-        options.setLanguageIn(LanguageMode.ECMASCRIPT5);
+        options.setLanguageIn(LanguageMode.ECMASCRIPT6);
         options.setLanguageOut(LanguageMode.ECMASCRIPT5);
 
         if (sourceMapWriter != null) {
@@ -287,14 +268,12 @@ public enum JavascriptWriter {
             }
         }
 
-
-        // Disable reporting non-standard jsdoc comments as warnings. Should have been able to do:
-        // options.setWarningLevel(DiagnosticGroups.NON_STANDARD_JSDOC, CheckLevel.OFF);
-        options.addWarningsGuard(NON_STANDARD_JSDOC_GUARD);
-
         try {
             Compiler compiler = new Compiler();
             setClosureOptions(options);
+
+            //Silence warnings from Lodash.
+            WarningLevel.QUIET.setOptionsForWarningLevel(options);
             setCustomPasses(options, compiler);
 
             // use a custom error manager so that we can keep the error source code snippet
